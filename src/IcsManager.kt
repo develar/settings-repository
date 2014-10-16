@@ -38,14 +38,6 @@ val PLUGIN_NAME: String = "Settings Repository"
 
 val LOG: Logger = Logger.getInstance(javaClass<IcsManager>())
 
-enum class SyncType {
-  MERGE
-  RESET_TO_THEIRS
-  RESET_TO_MY
-}
-
-class AuthenticationException(message: String, cause: Throwable) : Exception(message, cause)
-
 private fun getPathToBundledFile(filename: String): String {
   var pluginsDirectory: String
   var folder = "/settings-repository"
@@ -227,7 +219,7 @@ public class IcsManager : ApplicationLoadListener {
           catch (e: ProcessCanceledException) {
           }
           catch (e: Throwable) {
-            if (e !is AuthenticationException) {
+            if (e !is AuthenticationException && e !is NoRemoteRepositoryException) {
               LOG.error(e)
             }
             exception = e
@@ -374,3 +366,12 @@ private fun updateStateStorage(changedComponentNames: Set<String>, stateStorages
     }
   }
 }
+
+enum class SyncType {
+  MERGE
+  RESET_TO_THEIRS
+  RESET_TO_MY
+}
+
+class AuthenticationException(cause: Throwable) : RuntimeException(cause.getMessage(), cause)
+class NoRemoteRepositoryException(cause: Throwable) : RuntimeException(cause.getMessage(), cause)
