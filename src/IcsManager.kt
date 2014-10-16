@@ -33,6 +33,7 @@ import javax.swing.SwingUtilities
 import com.intellij.util.ui.UIUtil
 import com.intellij.openapi.util.Computable
 import com.intellij.openapi.components.impl.stores.ComponentStoreImpl
+import com.intellij.util.SystemProperties
 
 val PLUGIN_NAME: String = "Settings Repository"
 
@@ -77,7 +78,7 @@ public class IcsManager : ApplicationLoadListener {
 
   val repositoryManager: RepositoryManager = GitRepositoryManager(object : AtomicNotNullLazyValue<CredentialsStore>() {
     override fun compute(): CredentialsStore {
-      if (isOSXCredentialsStoreSupported) {
+      if (isOSXCredentialsStoreSupported && SystemProperties.getBooleanProperty("ics.use.osx.keychain", true)) {
         try {
           return OsXCredentialsStore()
         }
