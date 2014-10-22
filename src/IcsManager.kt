@@ -34,6 +34,13 @@ import com.intellij.util.ui.UIUtil
 import com.intellij.openapi.util.Computable
 import com.intellij.openapi.components.impl.stores.ComponentStoreImpl
 import com.intellij.util.SystemProperties
+import com.intellij.notification.Notifications
+import com.intellij.notification.Notification
+import com.intellij.notification.NotificationsAdapter
+import com.intellij.openapi.vcs.ui.VcsBalloonProblemNotifier
+import com.intellij.openapi.vcs.VcsBundle
+import com.intellij.openapi.application.ModalityState
+import org.jetbrains.settingsRepository.actions.syncAndNotify
 
 val PLUGIN_NAME: String = "Settings Repository"
 
@@ -158,11 +165,12 @@ public class IcsManager : ApplicationLoadListener {
     return settings
   }
 
-  public fun sync(syncType: SyncType, project: Project?, localRepositoryInitializer: (() -> Unit)? = null) {
+  public fun sync(syncType: SyncType, project: Project?, localRepositoryInitializer: (() -> Unit)? = null): UpdateResult? {
     ApplicationManager.getApplication()!!.assertIsDispatchThread()
 
     var exception: Throwable? = null
     var restartApplication = false
+    var updateResult: UpdateResult? = null
     cancelAndDisableAutoCommit()
     try {
       ApplicationManager.getApplication()!!.saveSettings()
@@ -194,7 +202,6 @@ public class IcsManager : ApplicationLoadListener {
             return
           }
 
-          var updateResult: UpdateResult? = null
           try {
             when (syncType) {
               SyncType.MERGE -> {
@@ -240,12 +247,11 @@ public class IcsManager : ApplicationLoadListener {
     if (restartApplication) {
       // force to avoid saveAll & confirmation
       (ApplicationManager.getApplication() as ApplicationImpl).exit(true, true, true, true)
-      return
     }
-
-    if (exception != null) {
+    else if (exception != null) {
       throw exception!!
     }
+    return updateResult
   }
 
   private fun cancelAndDisableAutoCommit() {
@@ -282,6 +288,27 @@ public class IcsManager : ApplicationLoadListener {
       override fun beforeProjectLoaded(project: Project) {
         if (!project.isDefault()) {
           registerProjectLevelProviders(project)
+
+          project.getMessageBus().connect().subscribe(Notifications.TOPIC, object: NotificationsAdapter() {
+            override fun notify(notification: Notification) {
+              if (!repositoryActive || project.isDisposed()) {
+                return
+              }
+
+              if (notification.getGroupId() == VcsBalloonProblemNotifier.NOTIFICATION_GROUP.getDisplayId()) {
+                val message = notification.getContent()
+                if (message.startsWith("VCS Update Finished") ||
+                    message == VcsBundle.message("message.text.file.is.up.to.date") ||
+                    message == VcsBundle.message("message.text.all.files.are.up.to.date")) {
+                  ApplicationManager.getApplication().invokeLater({
+                    if (repositoryActive) {
+                      syncAndNotify(SyncType.MERGE, project, false)
+                    }
+                  }, ModalityState.NON_MODAL, project.getDisposed())
+                }
+              }
+            }
+          })
         }
       }
     })

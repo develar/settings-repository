@@ -296,13 +296,12 @@ open class Pull(val manager: GitRepositoryManager, val indicator: ProgressIndica
         var failingPaths: Map<String, ResolveMerger.MergeFailureReason>? = null
         var unmergedPaths: List<String>? = null
         if (merger is ResolveMerger) {
-          val resolveMerger = merger as ResolveMerger
-          resolveMerger.setCommitNames(array("BASE", "HEAD", ref.getName()))
-          resolveMerger.setWorkingTreeIterator(FileTreeIterator(repository))
+          merger.setCommitNames(array("BASE", "HEAD", ref.getName()))
+          merger.setWorkingTreeIterator(FileTreeIterator(repository))
           noProblems = merger.merge(headCommit, srcCommit)
-          lowLevelResults = resolveMerger.getMergeResults()
-          failingPaths = resolveMerger.getFailingPaths()
-          unmergedPaths = resolveMerger.getUnmergedPaths()
+          lowLevelResults = merger.getMergeResults()
+          failingPaths = merger.getFailingPaths()
+          unmergedPaths = merger.getUnmergedPaths()
         }
         else {
           noProblems = merger.merge(headCommit, srcCommit)
