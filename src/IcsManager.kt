@@ -29,7 +29,6 @@ import java.util.LinkedHashSet
 import com.intellij.openapi.application.WriteAction
 import com.intellij.openapi.components.impl.stores.IComponentStore
 import com.intellij.openapi.components.impl.stores.FileBasedStorage
-import javax.swing.SwingUtilities
 import com.intellij.util.ui.UIUtil
 import com.intellij.openapi.util.Computable
 import com.intellij.openapi.components.impl.stores.ComponentStoreImpl
@@ -43,40 +42,11 @@ import com.intellij.openapi.application.ModalityState
 import com.intellij.openapi.vcs.VcsNotifier
 import java.util.concurrent.Future
 import com.intellij.openapi.application.ex.ApplicationManagerEx
-import com.intellij.openapi.util.io.FileUtilRt
 import com.intellij.openapi.util.ShutDownTracker
 
 val PLUGIN_NAME: String = "Settings Repository"
 
 val LOG: Logger = Logger.getInstance(javaClass<IcsManager>())
-
-private fun getPathToBundledFile(filename: String): String {
-  var pluginsDirectory: String
-  var folder = "/settings-repository"
-  if ("jar" == javaClass<IcsManager>().getResource("")!!.getProtocol()) {
-    // running from build
-    pluginsDirectory = PathManager.getPluginsPath()
-    if (!File(pluginsDirectory + folder).exists()) {
-      pluginsDirectory = PathManager.getHomePath()
-      folder = "/plugins" + folder
-    }
-  }
-  else {
-    // running from sources
-    pluginsDirectory = PathManager.getHomePath()
-  }
-  return FileUtilRt.toSystemDependentName(pluginsDirectory + folder + "/lib/" + filename)
-}
-
-fun getPluginSystemDir(): File {
-  val customPath = System.getProperty("ics.settingsRepository")
-  if (customPath == null) {
-    return File(PathManager.getSystemPath(), "settingsRepository")
-  }
-  else {
-    return File(FileUtil.expandUserHome(customPath))
-  }
-}
 
 public class IcsManager : ApplicationLoadListener {
   class object {
@@ -298,6 +268,17 @@ public class IcsManager : ApplicationLoadListener {
 
   override fun beforeApplicationLoaded(application: Application) {
     try {
+      val oldPluginDir = File(PathManager.getSystemPath(), "settingsRepository")
+      val newPluginDir = getPluginSystemDir()
+      if (oldPluginDir.exists() && !newPluginDir.exists()) {
+        FileUtil.rename(oldPluginDir, newPluginDir)
+      }
+    }
+    catch (e: Throwable) {
+      LOG.error(e)
+    }
+
+    try {
       settings.load()
     }
     catch (e: Exception) {
@@ -443,10 +424,6 @@ public class IcsManager : ApplicationLoadListener {
 
     override fun isEnabled() = repositoryActive
   }
-}
-
-fun invokeAndWaitIfNeed(runnable: ()->Unit) {
-  if (SwingUtilities.isEventDispatchThread()) runnable() else SwingUtilities.invokeAndWait(runnable)
 }
 
 private fun updateStoragesFromStreamProvider(store: IComponentStore.Reloadable, updateResult: UpdateResult): Boolean {
