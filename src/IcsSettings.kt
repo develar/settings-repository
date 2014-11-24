@@ -52,7 +52,7 @@ class IcsSettings {
       return
     }
 
-    XmlSerializer.deserializeInto(this, JDOMUtil.load(settingsFile))
+    XmlSerializer.deserializeInto(this, JDOMUtil.loadDocument(settingsFile).getRootElement())
 
     if (commitDelay < 0) {
       commitDelay = DEFAULT_COMMIT_DELAY
