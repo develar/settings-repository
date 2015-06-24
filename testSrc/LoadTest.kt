@@ -2,7 +2,8 @@ package org.jetbrains.settingsRepository.test
 
 import com.intellij.openapi.components.RoamingType
 import com.intellij.openapi.options.BaseSchemeProcessor
-import com.intellij.openapi.options.ExternalizableSchemeAdapter
+import com.intellij.openapi.options.ExternalInfo
+import com.intellij.openapi.options.ExternalizableScheme
 import com.intellij.openapi.options.SchemesManagerImpl
 import com.intellij.openapi.util.JDOMUtil
 import com.intellij.openapi.util.io.FileUtil
@@ -14,7 +15,18 @@ import org.junit.Test
 import java.io.File
 
 class LoadTest : TestCase() {
-  data class TestScheme(element: Element) : ExternalizableSchemeAdapter() {
+  data class TestScheme(element: Element) : ExternalizableScheme {
+    private val externalInfo = ExternalInfo()
+    private var myName = ""
+
+    override fun getExternalInfo() = externalInfo
+
+    override fun getName() = myName
+
+    override fun setName(newName: String) {
+      myName = newName
+    }
+
     val data = JDOMUtil.writeElement(element)
 
     init {

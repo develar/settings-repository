@@ -9,6 +9,7 @@ import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.progress.EmptyProgressIndicator
 import com.intellij.openapi.util.io.FileUtil
 import com.intellij.openapi.util.io.FileUtilRt
+import com.intellij.testFramework.PlatformTestCase
 import com.intellij.testFramework.TestLoggerFactory
 import com.intellij.testFramework.fixtures.IdeaProjectTestFixture
 import com.intellij.testFramework.fixtures.IdeaTestFixtureFactory
@@ -46,7 +47,7 @@ val repository: Repository
 
 
 fun save(path: String, data: ByteArray) {
-  getProvider().saveContent(path, data, data.size(), RoamingType.PER_USER)
+  getProvider().saveContent(path, data, data.size(), RoamingType.PER_USER, false)
 }
 
 fun addAndCommit(path: String): FileInfo {
@@ -87,6 +88,7 @@ abstract class TestCase {
 
     init {
       Logger.setFactory(javaClass<TestLoggerFactory>())
+      PlatformTestCase.initPlatformLangPrefix()
     }
 
     // BeforeClass doesn't work in Kotlin

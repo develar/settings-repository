@@ -11,8 +11,6 @@ import com.intellij.openapi.components.RoamingType
 import com.intellij.openapi.components.StoragePathMacros
 import com.intellij.openapi.components.impl.stores.*
 import com.intellij.openapi.diagnostic.Logger
-import com.intellij.openapi.options.SchemesManagerFactory
-import com.intellij.openapi.options.SchemesManagerFactoryImpl
 import com.intellij.openapi.progress.ProcessCanceledException
 import com.intellij.openapi.progress.ProgressIndicator
 import com.intellij.openapi.progress.ProgressManager
@@ -22,7 +20,6 @@ import com.intellij.openapi.project.ex.ProjectEx
 import com.intellij.openapi.project.impl.ProjectLifecycleListener
 import com.intellij.openapi.util.AtomicNotNullLazyValue
 import com.intellij.openapi.util.Computable
-import com.intellij.openapi.util.Condition
 import com.intellij.openapi.util.ShutDownTracker
 import com.intellij.openapi.util.io.FileUtil
 import com.intellij.openapi.vcs.VcsBundle
@@ -242,11 +239,6 @@ public class IcsManager : ApplicationLoadListener {
           if (updateResult != null) {
             restartApplication = updateStoragesFromStreamProvider((ApplicationManager.getApplication() as ApplicationImpl).getStateStore(), updateResult!!)
           }
-          if (!restartApplication && syncType == SyncType.OVERWRITE_LOCAL) {
-            (SchemesManagerFactory.getInstance() as SchemesManagerFactoryImpl).process {
-              it.reload()
-            }
-          }
         }
       })
     }
@@ -409,13 +401,7 @@ public class IcsManager : ApplicationLoadListener {
   open inner class IcsStreamProvider(protected val projectId: String?) : StreamProvider() {
     override fun listSubFiles(fileSpec: String, roamingType: RoamingType): MutableCollection<String> = repositoryManager.listSubFileNames(buildPath(fileSpec, roamingType, null)) as MutableCollection<String>
 
-    override fun processChildren(path: String, roamingType: RoamingType, filter: Condition<String>, processor: StreamProvider.ChildrenProcessor) {
-      repositoryManager.processChildren(buildPath(path, roamingType, null), filter) {name, input ->
-        processor.process(name, input)
-      }
-    }
-
-    override fun saveContent(fileSpec: String, content: ByteArray, size: Int, roamingType: RoamingType) {
+    override fun saveContent(fileSpec: String, content: ByteArray, size: Int, roamingType: RoamingType, async: Boolean) {
       if (writeAndDeleteProhibited) {
         throw IllegalStateException("Save is prohibited now")
       }
