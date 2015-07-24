@@ -38,10 +38,10 @@ class IcsSettingsEditor(private val project: Project?) : DialogWrapper(project, 
       actions = ArrayUtil.reverseArray(actions)
     }
 
-    val readOnlySourcesEditor = createReadOnlySourcesEditor(getContentPane(), project)
+//    val readOnlySourcesEditor = createReadOnlySourcesEditor(getContentPane(), project)
 
     tabs.addTab(TabInfo(wrap(upstreamEditor.panel, upstreamEditor.createActions())).setText("Upstream"))
-    tabs.addTab(TabInfo(wrap(readOnlySourcesEditor.getComponent(), actions)).setText("Read-only Sources").setObject(readOnlySourcesEditor))
+//    tabs.addTab(TabInfo(wrap(readOnlySourcesEditor.getComponent(), actions)).setText("Read-only Sources").setObject(readOnlySourcesEditor))
 
     tabs.addListener(object : TabsListener.Adapter() {
       override fun selectionChanged(oldSelection: TabInfo?, newSelection: TabInfo?) {

@@ -1,8 +1,8 @@
 package org.jetbrains.settingsRepository
 
 import com.intellij.openapi.application.ApplicationManager
+import com.intellij.openapi.application.invokeAndWaitIfNeed
 import com.intellij.openapi.fileTypes.StdFileTypes
-import com.intellij.openapi.util.Condition
 import com.intellij.openapi.util.io.FileUtil
 import com.intellij.openapi.vcs.merge.MergeDialogCustomizer
 import com.intellij.openapi.vcs.merge.MergeProvider2
@@ -13,11 +13,17 @@ import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.testFramework.LightVirtualFile
 import com.intellij.util.PathUtilRt
 import org.jetbrains.annotations.TestOnly
-import java.io.*
+import java.io.File
+import java.io.FileInputStream
+import java.io.InputStream
+import java.io.OutputStream
 import java.util.Arrays
+import java.util.concurrent.locks.ReentrantReadWriteLock
+import kotlin.concurrent.read
+import kotlin.concurrent.write
 
 public abstract class BaseRepositoryManager(protected val dir: File) : RepositoryManager {
-  protected val lock: Any = Object();
+  protected val lock: ReentrantReadWriteLock = ReentrantReadWriteLock()
 
   override fun listSubFileNames(path: String): Collection<String> {
     val files = File(dir, path).list()
@@ -27,12 +33,10 @@ public abstract class BaseRepositoryManager(protected val dir: File) : Repositor
     return listOf(*files)
   }
 
-  override fun processChildren(path: String, filter: Condition<String>, processor: (name: String, inputStream: InputStream) -> Boolean) {
+  override fun processChildren(path: String, filter: (name: String) -> Boolean, processor: (name: String, inputStream: InputStream) -> Boolean) {
     var files: Array<out File>? = null
-    synchronized (lock) {
-      files = File(dir, path).listFiles(object: FilenameFilter {
-        override fun accept(dir: File, name: String) = filter.value(name)
-      })
+    lock.read {
+      files = File(dir, path).listFiles({ file, name -> filter(name) })
     }
 
     if (files == null || files!!.isEmpty()) {
@@ -69,23 +73,30 @@ public abstract class BaseRepositoryManager(protected val dir: File) : Repositor
   }
 
   override fun read(path: String): InputStream? {
-    synchronized (lock) {
+    var fileToDelete: File? = null
+    lock.read {
       val file = File(dir, path)
       // we ignore empty files as well - delete if corrupted
       if (file.length() == 0L) {
-        if (file.exists()) {
-          try {
-            LOG.warn("File $path is empty (length 0), will be removed")
-            delete(file, path)
-          }
-          catch (e: Exception) {
-            LOG.error(e)
-          }
-        }
-        return null
+        fileToDelete = file
       }
-      return FileInputStream(file)
+      else {
+        return FileInputStream(file)
+      }
     }
+
+    try {
+      lock.write {
+        if (fileToDelete!!.exists() && fileToDelete!!.length() == 0L) {
+          LOG.warn("File $path is empty (length 0), will be removed")
+          delete(fileToDelete!!, path)
+        }
+      }
+    }
+    catch (e: Exception) {
+      LOG.error(e)
+    }
+    return null
   }
 
   override fun write(path: String, content: ByteArray, size: Int) {
@@ -94,7 +105,7 @@ public abstract class BaseRepositoryManager(protected val dir: File) : Repositor
     }
 
     try {
-      synchronized (lock) {
+      lock.write {
         val file = File(dir, path)
         FileUtil.writeToFile(file, content, 0, size)
 
@@ -113,47 +124,35 @@ public abstract class BaseRepositoryManager(protected val dir: File) : Repositor
 
   override fun delete(path: String) {
     if (LOG.isDebugEnabled()) {
-      LOG.debug("Remove " + path)
+      LOG.debug("Remove $path")
     }
 
-    try {
-      synchronized (lock) {
-        val file = File(dir, path)
-        // delete could be called for non-existent file
-        if (!file.exists()) {
-          return
-        }
-
+    lock.write {
+      val file = File(dir, path)
+      // delete could be called for non-existent file
+      if (file.exists()) {
         delete(file, path)
       }
-    }
-    catch (e: Exception) {
-      LOG.error(e)
     }
   }
 
   private fun delete(file: File, path: String) {
     val isFile = file.isFile()
-    removeFileAndParentDirectoryIfEmpty(file, dir, isFile)
+    file.removeWithParentsIfEmpty(dir, isFile)
     deleteFromIndex(path, isFile)
   }
 
   protected abstract fun deleteFromIndex(path: String, isFile: Boolean)
 
-  override fun has(path: String): Boolean {
-    synchronized (lock) {
-      return File(dir, path).exists()
-    }
-  }
+  override fun has(path: String) = lock.read { File(dir, path).exists() }
 }
 
-fun removeFileAndParentDirectoryIfEmpty(file: File, root: File, isFile: Boolean = true) {
-  FileUtil.delete(file)
+fun File.removeWithParentsIfEmpty(root: File, isFile: Boolean = true) {
+  FileUtil.delete(this)
 
   if (isFile) {
     // remove empty directories
-    var parent: File? = file.getParentFile()
-    //noinspection FileEqualsUsage
+    var parent = this.getParentFile()
     while (parent != null && parent != root && parent.delete()) {
       parent = parent.getParentFile()
     }

@@ -1,8 +1,6 @@
 package org.jetbrains.settingsRepository
 
-import com.intellij.openapi.progress.EmptyProgressIndicator
 import com.intellij.openapi.progress.ProgressIndicator
-import com.intellij.openapi.util.Condition
 import gnu.trove.THashSet
 import java.io.InputStream
 import java.util.Collections
@@ -34,18 +32,20 @@ public interface RepositoryManager {
 
   public fun listSubFileNames(path: String): Collection<String>
 
-  public fun processChildren(path: String, filter: Condition<String>, processor: (name: String, inputStream: InputStream) -> Boolean)
+  public fun processChildren(path: String, filter: (name: String) -> Boolean, processor: (name: String, inputStream: InputStream) -> Boolean)
 
   /**
    * Not all implementations support progress indicator (will not be updated on progress)
    */
-  public fun commit(indicator: ProgressIndicator): Boolean
+  public fun commit(indicator: ProgressIndicator? = null): Boolean
+
+  public fun getAheadCommitsCount(): Int
 
   public fun commit(paths: List<String>)
 
-  public fun push(indicator: ProgressIndicator = EmptyProgressIndicator())
+  public fun push(indicator: ProgressIndicator? = null)
 
-  public fun fetch(): Updater
+  public fun fetch(indicator: ProgressIndicator? = null): Updater
 
   public fun pull(indicator: ProgressIndicator): UpdateResult?
 
@@ -62,6 +62,12 @@ public interface RepositoryManager {
 
     // valid only if merge was called before
     val definitelySkipPush: Boolean
+  }
+}
+
+fun RepositoryManager.commitIfCan(indicator: ProgressIndicator? = null) {
+  if (canCommit()) {
+    commit(indicator)
   }
 }
 
@@ -117,3 +123,5 @@ public fun UpdateResult?.concat(result: UpdateResult?): UpdateResult? {
     return MutableUpdateResult(changed, deleted).add(result!!)
   }
 }
+
+public class AuthenticationException(cause: Throwable) : RuntimeException(cause.getMessage(), cause)

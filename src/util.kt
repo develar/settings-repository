@@ -1,12 +1,25 @@
+/*
+ * Copyright 2000-2015 JetBrains s.r.o.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package org.jetbrains.settingsRepository
 
 import com.intellij.openapi.application.PathManager
 import com.intellij.openapi.util.io.FileUtil
-import com.intellij.openapi.util.io.FileUtilRt
 import com.intellij.openapi.util.text.StringUtil
 import java.io.File
 import java.nio.ByteBuffer
-import javax.swing.SwingUtilities
 
 public fun String?.nullize(): String? = StringUtil.nullize(this)
 
@@ -23,24 +36,6 @@ public fun byteBufferToBytes(byteBuffer: ByteBuffer): ByteArray {
   return bytes
 }
 
-private fun getPathToBundledFile(filename: String): String {
-  var pluginsDirectory: String
-  var folder = "/settings-repository"
-  if ("jar" == javaClass<IcsManager>().getResource("")!!.getProtocol()) {
-    // running from build
-    pluginsDirectory = PathManager.getPluginsPath()
-    if (!File("$pluginsDirectory$folder").exists()) {
-      pluginsDirectory = PathManager.getHomePath()
-      folder = "/plugins$folder"
-    }
-  }
-  else {
-    // running from sources
-    pluginsDirectory = PathManager.getHomePath()
-  }
-  return FileUtilRt.toSystemDependentName("$pluginsDirectory$folder/lib/$filename")
-}
-
 fun getPluginSystemDir(): File {
   val customPath = System.getProperty("ics.settingsRepository")
   if (customPath == null) {
@@ -49,8 +44,4 @@ fun getPluginSystemDir(): File {
   else {
     return File(FileUtil.expandUserHome(customPath))
   }
-}
-
-fun invokeAndWaitIfNeed(runnable: ()->Unit) {
-  if (SwingUtilities.isEventDispatchThread()) runnable() else SwingUtilities.invokeAndWait(runnable)
 }

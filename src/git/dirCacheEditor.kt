@@ -10,7 +10,7 @@ import org.eclipse.jgit.lib.Constants
 import org.eclipse.jgit.lib.FileMode
 import org.eclipse.jgit.lib.Repository
 import org.jetbrains.settingsRepository.byteBufferToBytes
-import org.jetbrains.settingsRepository.removeFileAndParentDirectoryIfEmpty
+import org.jetbrains.settingsRepository.removeWithParentsIfEmpty
 import java.io.File
 import java.io.FileInputStream
 import java.text.MessageFormat
@@ -143,7 +143,7 @@ class AddFile(private val pathString: String) : PathEdit(encodePath(pathString))
       inserter.flush()
     }
     finally {
-      inserter.release()
+      inserter.close()
       input.close()
     }
   }
@@ -161,7 +161,7 @@ class AddLoadedFile(path: String, private val content: ByteArray, private val si
       inserter.flush()
     }
     finally {
-      inserter.release()
+      inserter.close()
     }
   }
 }
@@ -172,7 +172,7 @@ public class DeleteFile(path: ByteArray) : PathEdit(path) {
   override fun apply(entry: DirCacheEntry, repository: Repository) = throw UnsupportedOperationException(JGitText.get().noApplyInDelete)
 }
 
-public class DeleteDirectory(entryPath: String) : PathEdit(encodePath(if (entryPath.endsWith("/") || entryPath.length() == 0) entryPath else entryPath + "/")) {
+public class DeleteDirectory(entryPath: String) : PathEdit(encodePath(if (entryPath.endsWith('/') || entryPath.isEmpty()) entryPath else "$entryPath/")) {
   override fun apply(entry: DirCacheEntry, repository: Repository) = throw UnsupportedOperationException(JGitText.get().noApplyInDelete)
 }
 
@@ -239,7 +239,7 @@ public fun Repository.deletePath(path: String, isFile: Boolean = true, fromWorki
     val workTree = getWorkTree()
     val ioFile = File(workTree, path)
     if (ioFile.exists()) {
-      removeFileAndParentDirectoryIfEmpty(ioFile, workTree)
+      ioFile.removeWithParentsIfEmpty(workTree, isFile)
     }
   }
 }

@@ -1,3 +1,18 @@
+/*
+ * Copyright 2000-2015 JetBrains s.r.o.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package org.jetbrains.settingsRepository.test
 
 import com.intellij.mock.MockVirtualFileSystem
@@ -7,27 +22,64 @@ import com.intellij.openapi.util.io.FileUtil
 import com.intellij.openapi.vfs.CharsetToolkit
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.util.PathUtilRt
+import org.eclipse.jgit.api.Git
+import org.eclipse.jgit.lib.Repository
 import org.hamcrest.CoreMatchers.equalTo
 import org.hamcrest.Matchers.contains
 import org.hamcrest.Matchers.empty
+import org.jetbrains.jgit.dirCache.AddFile
 import org.jetbrains.jgit.dirCache.deletePath
+import org.jetbrains.jgit.dirCache.edit
 import org.jetbrains.jgit.dirCache.writePath
 import org.jetbrains.settingsRepository.AM
 import org.jetbrains.settingsRepository.SyncType
+import org.jetbrains.settingsRepository.git.GitRepositoryManager
 import org.jetbrains.settingsRepository.git.commit
 import org.jetbrains.settingsRepository.git.computeIndexDiff
 import org.jetbrains.settingsRepository.git.resetHard
-import org.jetbrains.settingsRepository.icsManager
 import org.junit.Assert.assertThat
 import org.junit.Test
 import java.io.File
 import javax.swing.SwingUtilities
+import kotlin.properties.Delegates
 
 class GitTest : TestCase() {
+  private val repositoryManager: GitRepositoryManager
+    get() = icsManager.repositoryManager as GitRepositoryManager
+
+  private val repository: Repository
+    get() = repositoryManager.repository
+
+  val remoteRepository by Delegates.lazy {
+    tempDirManager.createRepository("upstream")
+  }
+
+  private fun delete(data: ByteArray, directory: Boolean) {
+    val addedFile = "\$APP_CONFIG$/remote.xml"
+    provider.save(addedFile, data)
+    provider.delete(if (directory) "\$APP_CONFIG$" else addedFile, RoamingType.PER_USER)
+
+    val diff = repository.computeIndexDiff()
+    assertThat(diff.diff(), equalTo(false))
+    assertThat(diff.getAdded(), empty())
+    assertThat(diff.getChanged(), empty())
+    assertThat(diff.getRemoved(), empty())
+    assertThat(diff.getModified(), empty())
+    assertThat(diff.getUntracked(), empty())
+    assertThat(diff.getUntrackedFolders(), empty())
+  }
+
+  private fun addAndCommit(path: String): FileInfo {
+    val data = FileUtil.loadFileBytes(File(testDataPath, PathUtilRt.getFileName(path)))
+    provider.save(path, data)
+    repositoryManager.commit(EmptyProgressIndicator())
+    return FileInfo(path, data)
+  }
+
   public Test fun add() {
     val data = FileUtil.loadFileBytes(File(testDataPath, "remote.xml"))
     val addedFile = "\$APP_CONFIG$/remote.xml"
-    save(addedFile, data)
+    provider.save(addedFile, data)
 
     val diff = repository.computeIndexDiff()
     assertThat(diff.diff(), equalTo(true))
@@ -44,8 +96,8 @@ class GitTest : TestCase() {
     val data2 = FileUtil.loadFileBytes(File(testDataPath, "local.xml"))
     val addedFile = "\$APP_CONFIG$/remote.xml"
     val addedFile2 = "\$APP_CONFIG$/local.xml"
-    save(addedFile, data)
-    save(addedFile2, data2)
+    provider.save(addedFile, data)
+    provider.save(addedFile2, data2)
 
     val diff = repository.computeIndexDiff()
     assertThat(diff.diff(), equalTo(true))
@@ -107,7 +159,7 @@ class GitTest : TestCase() {
     repositoryManager.setUpstream(remoteRepository.getWorkTree().getAbsolutePath(), remoteBranchName)
   }
 
-  private fun createLocalRepositoryAndCommit(remoteBranchName: String?): FileInfo {
+  private fun createLocalRepositoryAndCommit(remoteBranchName: String? = null): FileInfo {
     createLocalRepository(remoteBranchName)
     return addAndCommit("\$APP_CONFIG$/local.xml")
   }
@@ -163,7 +215,7 @@ class GitTest : TestCase() {
   }
 
   public Test fun `reset to my, second merge is null`() {
-    createLocalRepositoryAndCommit(null)
+    createLocalRepositoryAndCommit()
     sync(SyncType.MERGE)
 
     restoreRemoteAfterPush()
@@ -171,12 +223,12 @@ class GitTest : TestCase() {
     val fs = fs("\$APP_CONFIG$/local.xml", "\$APP_CONFIG$/remote.xml")
     compareFiles(fs)
 
-    val local2FilePath = "_mac/local2.xml"
-    addAndCommit(local2FilePath)
+    val localToFilePath = "_mac/local2.xml"
+    addAndCommit(localToFilePath)
     sync(SyncType.OVERWRITE_REMOTE)
     restoreRemoteAfterPush()
 
-    fs.findFileByPath(local2FilePath)
+    fs.findFileByPath(localToFilePath)
     compareFiles(fs)
 
     // test: merge to remote after such reset
@@ -191,7 +243,7 @@ class GitTest : TestCase() {
     createLocalRepository(null)
 
     val data = AM.MARKER_ACCEPT_MY
-    save("\$APP_CONFIG$/remote.xml", data)
+    provider.save("\$APP_CONFIG$/remote.xml", data)
 
     sync(SyncType.MERGE)
 
@@ -205,10 +257,9 @@ class GitTest : TestCase() {
     sync(SyncType.MERGE)
 
     val data = AM.MARKER_ACCEPT_THEIRS
-    save("\$APP_CONFIG$/remote.xml", data)
+    provider.save("\$APP_CONFIG$/remote.xml", data)
     repositoryManager.commit(EmptyProgressIndicator())
 
-    val remoteRepository = testHelper.repository!!
     remoteRepository.deletePath("\$APP_CONFIG$/remote.xml")
     remoteRepository.commit("delete remote.xml")
 
@@ -222,10 +273,9 @@ class GitTest : TestCase() {
 
     sync(SyncType.MERGE)
 
-    getProvider().delete("\$APP_CONFIG$/remote.xml", RoamingType.PER_USER)
+    provider.delete("\$APP_CONFIG$/remote.xml", RoamingType.PER_USER)
     repositoryManager.commit(EmptyProgressIndicator())
 
-    val remoteRepository = testHelper.repository!!
     remoteRepository.writePath("\$APP_CONFIG$/remote.xml", AM.MARKER_ACCEPT_THEIRS)
     remoteRepository.commit("")
 
@@ -248,13 +298,36 @@ class GitTest : TestCase() {
     doSyncWithUninitializedUpstream(SyncType.OVERWRITE_LOCAL)
   }
 
+  fun createFileRemote(branchName: String? = null, initialCommit: Boolean = true): File {
+    val repository = getRemoteRepository(branchName)
+
+    val workTree: File = repository.getWorkTree()
+    if (initialCommit) {
+      val addedFile = "\$APP_CONFIG$/remote.xml"
+      FileUtil.copy(File(testDataPath, "remote.xml"), File(workTree, addedFile))
+      repository.edit(AddFile(addedFile))
+      repository.commit("")
+    }
+    return workTree
+  }
+
+  fun getRemoteRepository(branchName: String? = null): Repository {
+    val repository = remoteRepository
+    if (branchName != null) {
+      // jgit cannot checkout&create branch if no HEAD (no commits in our empty repository), so we create initial empty commit
+      repository.commit("")
+      Git(repository).checkout().setCreateBranch(true).setName(branchName).call()
+    }
+    return repository
+  }
+
   private fun doSyncWithUninitializedUpstream(syncType: SyncType) {
     createFileRemote(null, false)
     repositoryManager.setUpstream(remoteRepository.getWorkTree().getAbsolutePath(), null)
 
     val path = "\$APP_CONFIG$/local.xml"
     val data = FileUtil.loadFileBytes(File(testDataPath, PathUtilRt.getFileName(path)))
-    save(path, data)
+    provider.save(path, data)
 
     sync(syncType)
 
@@ -275,12 +348,12 @@ class GitTest : TestCase() {
     "
     so, we do "git reset --hard"
      */
-    testHelper.repository!!.resetHard()
+    remoteRepository.resetHard()
   }
 
   private fun sync(syncType: SyncType) {
     SwingUtilities.invokeAndWait {
-      icsManager.sync(syncType, fixture!!.getProject())
+      icsManager.sync(syncType, fixtureManager.projectFixture.getProject())
     }
   }
 }
