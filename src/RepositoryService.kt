@@ -17,7 +17,7 @@ public interface RepositoryService {
       isFile = true
     }
     else {
-      isFile = uri.getScheme() == null && !uriString.startsWith("git@")
+      isFile = uri.getScheme() == null && uri.getHost() == null
     }
 
     if (messageParent != null && isFile && !checkFileRepo(uriString, messageParent)) {
