@@ -81,7 +81,7 @@ class IcsManager(dir: File) {
     }
   }
 
-  val readOnlySourcesManager = ReadOnlySourcesManager(settings, dir)
+//  val readOnlySourcesManager = ReadOnlySourcesManager(settings, dir)
 
   val repositoryService: RepositoryService = GitRepositoryService()
 

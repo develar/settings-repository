@@ -2,6 +2,7 @@ package org.jetbrains.settingsRepository;
 
 import com.intellij.openapi.fileChooser.FileChooserDescriptorFactory;
 import com.intellij.openapi.project.Project;
+import com.intellij.openapi.ui.DialogWrapper;
 import com.intellij.openapi.ui.TextBrowseFolderListener;
 import com.intellij.openapi.ui.TextFieldWithBrowseButton;
 import com.intellij.openapi.util.text.StringUtil;
@@ -13,18 +14,25 @@ import org.jetbrains.annotations.Nullable;
 
 import javax.swing.*;
 import javax.swing.event.DocumentEvent;
-import java.awt.*;
 
-public class IcsSettingsPanel {
-  JPanel panel;
-  TextFieldWithBrowseButton urlTextField;
+public class IcsSettingsPanel extends DialogWrapper {
+  private JPanel panel;
+  private TextFieldWithBrowseButton urlTextField;
   private final Action[] syncActions;
 
-  public IcsSettingsPanel(@Nullable final Project project, @NotNull Container dialogParent, @NotNull Function0<Unit> okAction) {
+  public IcsSettingsPanel(@Nullable Project project) {
+    super(project, true);
+
     urlTextField.setText(SettingsRepositoryPackage.getIcsManager().getRepositoryManager().getUpstream());
     urlTextField.addBrowseFolderListener(new TextBrowseFolderListener(FileChooserDescriptorFactory.createSingleFolderDescriptor()));
 
-    syncActions = SettingsRepositoryPackage.createMergeActions(project, urlTextField, dialogParent, okAction);
+    syncActions = SettingsRepositoryPackage.createMergeActions(project, urlTextField, getContentPane(), new Function0<Unit>() {
+      @Override
+      public Unit invoke() {
+        doOKAction();
+        return null;
+      }
+    });
 
     urlTextField.getTextField().getDocument().addDocumentListener(new DocumentAdapter() {
       @Override
@@ -35,10 +43,27 @@ public class IcsSettingsPanel {
 
     urlTextField.requestFocusInWindow();
     SettingsRepositoryPackage.updateSyncButtonState(StringUtil.nullize(urlTextField.getText()), syncActions);
+
+    setTitle(IcsBundle.message("settings.panel.title"));
+    setResizable(false);
+    init();
+  }
+
+  @Nullable
+  @Override
+  public JComponent getPreferredFocusedComponent() {
+    return urlTextField;
+  }
+
+  @Nullable
+  @Override
+  protected JComponent createCenterPanel() {
+    return panel;
   }
 
   @NotNull
-  Action[] createActions() {
+  @Override
+  protected Action[] createActions() {
     return syncActions;
   }
 }

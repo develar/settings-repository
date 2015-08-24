@@ -40,7 +40,7 @@ class ResetToMyAction : SyncAction(SyncType.OVERWRITE_REMOTE)
 class ConfigureIcsAction : DumbAwareAction() {
   override fun actionPerformed(e: AnActionEvent) {
     icsManager.runInAutoCommitDisabledMode {
-      IcsSettingsEditor(e.getProject()).show()
+      IcsSettingsPanel(e.getProject()).show()
     }
   }
 
