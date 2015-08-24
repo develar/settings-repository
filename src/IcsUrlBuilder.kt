@@ -16,7 +16,15 @@ private fun getOsFolderName() = when {
 }
 
 fun buildPath(path: String, roamingType: RoamingType, projectKey: String? = null): String {
-  val fixedPath = if (path.startsWith(StoragePathMacros.ROOT_CONFIG)) path.substring(StoragePathMacros.ROOT_CONFIG.length() + 1) else path
+  var fixedPath = if (path.startsWith(StoragePathMacros.ROOT_CONFIG)) {
+    path.substring(StoragePathMacros.ROOT_CONFIG.length() + 1)
+  }
+  else if (path.startsWith(StoragePathMacros.APP_CONFIG)) {
+    path.substring(StoragePathMacros.APP_CONFIG.length() + 1)
+  }
+  else {
+    path
+  }
 
   fun String.osIfNeed() = if (roamingType == RoamingType.PER_PLATFORM) "${getOsFolderName()}/$this" else this
 
