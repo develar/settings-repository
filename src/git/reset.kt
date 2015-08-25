@@ -17,7 +17,7 @@ class Reset(manager: GitRepositoryManager, indicator: ProgressIndicator) : Pull(
     val resetResult = repository.resetHard()
     val result = MutableUpdateResult(resetResult.getUpdated().keySet(), resetResult.getRemoved())
 
-    indicator.checkCanceled()
+    indicator?.checkCanceled()
 
     val commitMessage = message
     // grab added/deleted/renamed/modified files

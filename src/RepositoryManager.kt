@@ -35,9 +35,11 @@ public interface RepositoryManager {
   public fun processChildren(path: String, filter: (name: String) -> Boolean, processor: (name: String, inputStream: InputStream) -> Boolean)
 
   /**
-   * Not all implementations support progress indicator (will not be updated on progress)
+   * Not all implementations support progress indicator (will not be updated on progress).
+   *
+   * syncType will be passed if called before sync.
    */
-  public fun commit(indicator: ProgressIndicator? = null): Boolean
+  public fun commit(indicator: ProgressIndicator? = null, syncType: SyncType? = null): Boolean
 
   public fun getAheadCommitsCount(): Int
 
@@ -62,12 +64,6 @@ public interface RepositoryManager {
 
     // valid only if merge was called before
     val definitelySkipPush: Boolean
-  }
-}
-
-fun RepositoryManager.commitIfCan(indicator: ProgressIndicator? = null) {
-  if (canCommit()) {
-    commit(indicator)
   }
 }
 
