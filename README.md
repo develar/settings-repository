@@ -2,8 +2,6 @@
 
 Available for all IntelliJ Platform based products (build number greater than 139.69/140.2). Settings | Plugins | Browse repositories -> type in Settings Repository.
 
-Since version 0.2.11 Java 8 is required (IntelliJ IDEA 15 EAP bundled with Java 8). Use IDE builds \*-custom-jdk-bundled.*.
-
 Don't try to install plugin from disk — otherwise you have to be aware of compatibility.
 
 # Configuration
@@ -24,3 +22,6 @@ OS X Keychain is supported. It means that your credentials could be shared betwe
 
 ## How to report issues
 Use [JetBrains YouTrack](https://youtrack.jetbrains.com/issues?q=%23%7BSettings+Repository%7D) — project IntelliJ IDEA, subsystem Settings Repository ([issue template](https://youtrack.jetbrains.com/newIssue?project=IDEA&clearDraft=true&c=Subsystem+Settings+Repository)).
+
+## Sources
+Plugin is part of IntelliJ IDEA Community Edition and bundled with IDEA 15, WebStorm 11 and PhpStorm 9.5. Please see https://github.com/JetBrains/intellij-community/tree/master/plugins/settings-repository This repository is archived.
