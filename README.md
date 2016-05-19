@@ -9,7 +9,7 @@ Don't try to install plugin from disk — otherwise you have to be aware of comp
 Use File -> Settings Repository… to configure.
 
 Specify URL of upstream Git repository. File URL is supported, you will be prompted to init repository if specified path is not exists or repository is not created.
-[GitHub](www.github.com) could be used to store settings.
+[GitHub](https://www.github.com) could be used to store settings.
 
 Synchronization is performed automatically:
 * after successful completion of "Update Project" or "Push" actions,
